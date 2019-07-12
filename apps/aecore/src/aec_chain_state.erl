@@ -408,7 +408,7 @@ internal_insert_transaction(Node, Block, Origin) ->
         true ->
             ok;
         false ->
-            assert_not_illegal_fork_or_orphan(Node, Origin, State2),
+            assert_not_illegal_fork_or_orphan(Node, Origin, State2), %% XXX Blocks not connected to genesis are discarded. Hence version can be determined.
             PrevNode = db_get_node(prev_hash(Node)),
             assert_previous_height(PrevNode, Node),
             assert_previous_key_block_hash(PrevNode, Node),
@@ -864,7 +864,7 @@ find_one_predecessor([N|Left], Node) ->
 
 grant_fees(Node, Trees, Delay, FraudStatus, State) ->
     NewestBlockHeight = node_height(Node) - Delay + ?POF_REPORT_DELAY,
-    KeyNode4 = find_predecessor_at_height(Node, NewestBlockHeight),
+    KeyNode4 = find_predecessor_at_height(Node, NewestBlockHeight), %% XXX This function is already used at each key block, with height 178 blocks ago.
     KeyNode3 = db_get_node(prev_key_hash(KeyNode4)),
     KeyNode2 = db_get_node(prev_key_hash(KeyNode3)),
     KeyNode1 = db_get_node(prev_key_hash(KeyNode2)),
