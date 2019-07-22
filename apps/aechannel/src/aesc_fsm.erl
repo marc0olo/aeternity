@@ -1269,7 +1269,7 @@ close_solo_signed(SignedTx, _Updates, #data{ on_chain_id = ChId } = D) ->
 
 is_channel_locked(0) -> false;
 is_channel_locked(LockedUntil) ->
-    LockedUntil >= cur_height().
+    LockedUntil >= curr_height().
 
 awaiting_locked(enter, _OldSt, _D) -> keep_state_and_data;
 awaiting_locked(cast, {?MIN_DEPTH_ACHIEVED, ChainId, ?WATCH_FND, TxHash},
@@ -2201,7 +2201,7 @@ new_onchain_tx_for_signing(Type, Opts, D) ->
 new_onchain_tx_for_signing_(Type, Opts, D) ->
     Defaults = tx_defaults(Type, Opts, D),
     Opts1 = maps:merge(Defaults, Opts),
-    CurrHeight = cur_height(),
+    CurrHeight = curr_height(),
     {ok, Tx, Updates} = new_onchain_tx(Type, Opts1, D, CurrHeight),
     case {aetx:min_fee(Tx, CurrHeight), aetx:fee(Tx)} of
         {MinFee, Fee} when MinFee =< Fee ->
@@ -2326,7 +2326,7 @@ new_onchain_tx(channel_close_solo_tx, Opts,
                #data{ on_chain_id = ChanId
                     , opts = #{initiator := Initiator,
                                responder := Responder}
-                    , state       = State } = D, CurrHeight) ->
+                    , state = State } = D, CurrHeight) ->
     Account = my_account(D),
     TTL = adjust_ttl(maps:get(ttl, Opts, 0)),
     {_Round, SignedTx} = aesc_offchain_state:get_latest_signed_tx(State),
@@ -2351,7 +2351,7 @@ new_onchain_tx(channel_slash_tx, Opts,
                #data{ on_chain_id = ChanId
                     , opts = #{initiator := Initiator,
                                responder := Responder}
-                    , state       = State} = D, CurrHeight) ->
+                    , state = State} = D, CurrHeight) ->
     Account = my_account(D),
     Def = tx_defaults(channel_slash_tx, #{acct => Account}, D),
     Opts1 = maps:merge(Def, Opts),
@@ -2366,23 +2366,20 @@ new_onchain_tx(channel_slash_tx, Opts,
     {ok, Tx} = new_onchain_tx_(aesc_slash_tx, Opts2, CurrHeight),
     {ok, Tx, []}.
 
-
-
-
 new_onchain_tx_(Mod, Opts, CurrHeight) ->
     case maps:is_key(fee, Opts) of
         true -> % use preset fee
             apply(Mod, new, [Opts]);
         false ->
-            create_with_minuimum_fee(Mod, Opts#{fee => 0}, CurrHeight)
+            create_with_minimum_fee(Mod, Opts#{fee => 0}, CurrHeight)
     end.
 
-create_with_minuimum_fee(Mod, Opts, CurrHeight) ->
-    create_with_minuimum_fee(Mod, Opts, CurrHeight, 5).
+create_with_minimum_fee(Mod, Opts, CurrHeight) ->
+    create_with_minimum_fee(Mod, Opts, CurrHeight, 5).
 
-create_with_minuimum_fee(_, _, _, Attempts) when Attempts < 1 ->
+create_with_minimum_fee(_, _, _, Attempts) when Attempts < 1 ->
     erlang:error(could_not_compute_fee);
-create_with_minuimum_fee(Mod, Opts, CurrHeight, Attempts) ->
+create_with_minimum_fee(Mod, Opts, CurrHeight, Attempts) ->
     {ok, Tx} = apply(Mod, new, [Opts]),
     MinTxFee = aetx:min_fee(Tx, CurrHeight),
     MinGas = aetx:min_gas(Tx, CurrHeight),
@@ -2394,7 +2391,7 @@ create_with_minuimum_fee(Mod, Opts, CurrHeight, Attempts) ->
         true ->
             {ok, Tx};
         false ->
-            create_with_minuimum_fee(Mod, Opts#{fee => MinFee}, CurrHeight,
+            create_with_minimum_fee(Mod, Opts#{fee => MinFee}, CurrHeight,
                                      Attempts - 1)
     end.
 
@@ -2496,10 +2493,10 @@ get_nonce(Pubkey) ->
 %% we have an actual transaction record (required by aetx:min_fee/2).
 %% The default should err on the side of being too low.
 default_fee(_Tx) ->
-    CurHeight = aec_headers:height(aec_chain:top_header()),
+    CurrHeight = aec_headers:height(aec_chain:top_header()),
     %% this could be fragile on hard fork height if one participant's node had
     %% already forked and the other had not yet
-    20000 * max(aec_governance:minimum_gas_price(CurHeight),
+    20000 * max(aec_governance:minimum_gas_price(CurrHeight),
                 aec_tx_pool:minimum_miner_gas_price()).
 
 default_ttl(_Type, Opts, #data{opts = DOpts}) ->
@@ -2507,12 +2504,12 @@ default_ttl(_Type, Opts, #data{opts = DOpts}) ->
     Opts#{ttl => adjust_ttl(TTL)}.
 
 adjust_ttl(undefined) ->
-    CurHeight = aec_headers:height(aec_chain:top_header()),
-    CurHeight + 100;
+    CurrHeight = aec_headers:height(aec_chain:top_header()),
+    CurrHeight + 100;
 adjust_ttl(TTL) when is_integer(TTL), TTL >= 0 ->
     TTL.
 
-cur_height() ->
+curr_height() ->
     aec_headers:height(aec_chain:top_header()).
 
 
